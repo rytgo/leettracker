@@ -169,7 +169,14 @@ export default function Home() {
               className={`user-card ${todayStatus.isDone ? 'solved' : 'not-solved'}`}
             >
               <div className="user-header">
-                <span className="user-name">{user.display_name}</span>
+                <a
+                  href={`https://leetcode.com/u/${user.leetcode_username}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="user-name-link"
+                >
+                  {user.display_name} ↗
+                </a>
                 <span className={`user-status-badge ${todayStatus.isDone ? 'solved' : 'not-solved'}`}>
                   {todayStatus.isDone ? '✓ DONE' : '✗ PENDING'}
                 </span>
@@ -200,8 +207,9 @@ export default function Home() {
       </div>
 
       <div className="nav-links">
-        <Link href="/history" className="nav-link">View History</Link>
-        <Link href="/add-user" className="nav-link">Add User</Link>
+        <Link href="/history" className="nav-link">History</Link>
+        <Link href="/add-user" className="nav-link">Add</Link>
+        <Link href="/edit-user" className="nav-link">Edit</Link>
         <Link href="/remove-user" className="nav-link">Remove</Link>
       </div>
     </div>

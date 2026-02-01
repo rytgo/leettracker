@@ -161,3 +161,34 @@ export async function DELETE(request: NextRequest) {
         );
     }
 }
+
+export async function PATCH(request: NextRequest) {
+    try {
+        const body = await request.json();
+        const { username, displayName } = body;
+
+        if (!username || !displayName) {
+            return NextResponse.json(
+                { error: 'Username and display name are required' },
+                { status: 400 }
+            );
+        }
+
+        const { error } = await supabase
+            .from('users')
+            .update({ display_name: displayName })
+            .eq('leetcode_username', username);
+
+        if (error) {
+            throw error;
+        }
+
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error('Error updating user:', error);
+        return NextResponse.json(
+            { error: 'Internal server error' },
+            { status: 500 }
+        );
+    }
+}
