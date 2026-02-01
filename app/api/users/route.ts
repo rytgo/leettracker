@@ -28,10 +28,15 @@ export async function POST(request: NextRequest) {
             );
         }
 
+
         // 2. Insert user into Supabase
         const { data: newUser, error: insertError } = await supabase
             .from('users')
-            .insert([{ leetcode_username: username, display_name: displayName }])
+            .insert([{
+                leetcode_username: username,
+                display_name: displayName,
+                room_id: body.roomId || null
+            }])
             .select()
             .single();
 

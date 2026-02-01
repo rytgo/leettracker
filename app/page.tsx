@@ -1,216 +1,134 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
-import { getStreaks } from '@/lib/streaks';
-import { getSecondsUntilMidnight, formatTime, getPacificDate } from '@/lib/timezone';
-import { UserWithStreaks } from '@/lib/types';
-import { DateTime } from 'luxon';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-export default function Home() {
-  const [users, setUsers] = useState<UserWithStreaks[]>([]);
-  const [countdown, setCountdown] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [lastSynced, setLastSynced] = useState<string | null>(null);
+export default function LandingPage() {
+  const router = useRouter();
+  const [joinCode, setJoinCode] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showPinInput, setShowPinInput] = useState(false);
+  const [pin, setPin] = useState('');
 
-  const formatCountdown = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+  const handleCreateRoom = async () => {
+    setCreating(true);
+    setError(null);
 
-  const fetchData = async () => {
     try {
-      const { data: usersData, error: usersError } = await supabase
-        .from('users')
-        .select('*')
-        .order('display_name');
+      const res = await fetch('/api/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: showPinInput ? pin : null }),
+      });
 
-      if (usersError) throw usersError;
-
-      if (!usersData || usersData.length === 0) {
-        setUsers([]);
-        setLoading(false);
-        return;
+      if (!res.ok) {
+        throw new Error('Failed to create room');
       }
 
-      const today = getPacificDate();
-      const enrichedUsers = await Promise.all(
-        usersData.map(async (user) => {
-          const { data: todayResult } = await supabase
-            .from('daily_results')
-            .select('*')
-            .eq('user_id', user.id)
-            .eq('date', today)
-            .single();
-
-          const streaks = await getStreaks(user.id);
-
-          return {
-            ...user,
-            currentStreak: streaks.current,
-            longestStreak: streaks.longest,
-            todayStatus: {
-              isDone: todayResult?.did_solve || false,
-              solveTime: todayResult?.solved_at || null,
-              problemTitle: todayResult?.problem_title || null,
-              problemSlug: todayResult?.problem_slug || null,
-              submissionId: todayResult?.submission_id || null,
-            },
-          };
-        })
-      );
-
-      setUsers(enrichedUsers);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      setLoading(false);
+      const data = await res.json();
+      router.push(`/room/${data.room.code}`);
+    } catch (err) {
+      setError('Failed to create room. Please try again.');
+      setCreating(false);
     }
   };
 
-  const handleRefresh = async () => {
-    setSyncing(true);
+  const handleJoinRoom = async () => {
+    if (!joinCode.trim()) {
+      setError('Please enter a room code');
+      return;
+    }
+
+    setJoining(true);
+    setError(null);
+
     try {
-      await fetch('/api/sync');
-      await fetchData();
-      setLastSynced(new Date().toLocaleTimeString());
-    } catch (error) {
-      console.error('Sync failed:', error);
-    } finally {
-      setSyncing(false);
+      const res = await fetch(`/api/rooms?code=${joinCode.trim().toLowerCase()}`);
+
+      if (!res.ok) {
+        throw new Error('Room not found');
+      }
+
+      router.push(`/room/${joinCode.trim().toLowerCase()}`);
+    } catch (err) {
+      setError('Room not found. Please check the code.');
+      setJoining(false);
     }
   };
-
-  useEffect(() => {
-    const updateCountdown = () => {
-      const seconds = getSecondsUntilMidnight();
-      setCountdown(formatCountdown(seconds));
-    };
-
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="container">
-        <div className="header">
-          <h1 className="title">LEETTRACKER</h1>
-          <p className="subtitle">daily accountability</p>
-        </div>
-        <div className="loading">
-          <div className="loading-spinner"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (users.length === 0) {
-    return (
-      <div className="container">
-        <div className="header">
-          <h1 className="title">LEETTRACKER</h1>
-          <p className="subtitle">daily accountability</p>
-        </div>
-        <div className="empty-state">
-          <div className="empty-state-icon">👥</div>
-          <p>No users being tracked yet.</p>
-          <Link href="/add-user" className="nav-link" style={{ marginTop: '1rem', display: 'inline-block' }}>
-            Add your first user →
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="container">
       <div className="header">
         <h1 className="title">LEETTRACKER</h1>
-        <p className="subtitle">daily accountability</p>
+        <p className="subtitle">daily accountability for groups</p>
       </div>
 
-      <div className="countdown-section">
-        <div className="countdown-label">Time remaining today</div>
-        <div className="countdown-time">{countdown}</div>
-        <button
-          onClick={handleRefresh}
-          disabled={syncing}
-          className="refresh-btn"
-        >
-          {syncing ? '⟳ Syncing...' : '⟳ Refresh Now'}
-        </button>
-        {lastSynced && (
-          <div className="last-synced">Last synced: {lastSynced}</div>
-        )}
-      </div>
+      <div className="landing-content">
+        <div className="landing-section">
+          <h2>Create a Room</h2>
+          <p className="landing-desc">Start a new tracking group for you and your friends</p>
 
-      <div className="users-grid">
-        {users.map((user) => {
-          const { todayStatus } = user;
-          const solveTimeDisplay = todayStatus.solveTime
-            ? formatTime(DateTime.fromISO(todayStatus.solveTime))
-            : null;
+          <div className="pin-toggle">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={showPinInput}
+                onChange={(e) => setShowPinInput(e.target.checked)}
+              />
+              <span>Protect with PIN (optional)</span>
+            </label>
+          </div>
 
-          return (
-            <div
-              key={user.id}
-              className={`user-card ${todayStatus.isDone ? 'solved' : 'not-solved'}`}
-            >
-              <div className="user-header">
-                <a
-                  href={`https://leetcode.com/u/${user.leetcode_username}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="user-name-link"
-                >
-                  {user.display_name} ↗
-                </a>
-                <span className={`user-status-badge ${todayStatus.isDone ? 'solved' : 'not-solved'}`}>
-                  {todayStatus.isDone ? '✓ DONE' : '✗ PENDING'}
-                </span>
-              </div>
+          {showPinInput && (
+            <input
+              type="password"
+              placeholder="Enter PIN"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              className="form-input"
+              style={{ marginBottom: '1rem' }}
+            />
+          )}
 
-              {todayStatus.isDone && (
-                <div className="user-details">
-                  Solved at {solveTimeDisplay}
-                  {todayStatus.problemTitle && ` · ${todayStatus.problemTitle}`}
-                </div>
-              )}
+          <button
+            onClick={handleCreateRoom}
+            disabled={creating}
+            className="btn-primary"
+          >
+            {creating ? 'Creating...' : 'Create Room'}
+          </button>
+        </div>
 
-              <div className="streaks">
-                <div className="streak-item">
-                  <span>🔥</span>
-                  <span>Current:</span>
-                  <span className="streak-value">{user.currentStreak}</span>
-                </div>
-                <div className="streak-item">
-                  <span>⭐</span>
-                  <span>Best:</span>
-                  <span className="streak-value">{user.longestStreak}</span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+        <div className="landing-divider">
+          <span>or</span>
+        </div>
 
-      <div className="nav-links">
-        <Link href="/history" className="nav-link">History</Link>
-        <Link href="/add-user" className="nav-link">Add</Link>
-        <Link href="/edit-user" className="nav-link">Edit</Link>
-        <Link href="/remove-user" className="nav-link">Remove</Link>
+        <div className="landing-section">
+          <h2>Join a Room</h2>
+          <p className="landing-desc">Enter a room code to join an existing group</p>
+
+          <input
+            type="text"
+            placeholder="Enter room code"
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value)}
+            className="form-input"
+            maxLength={6}
+            style={{ marginBottom: '1rem' }}
+          />
+
+          <button
+            onClick={handleJoinRoom}
+            disabled={joining || !joinCode.trim()}
+            className="btn-secondary"
+          >
+            {joining ? 'Joining...' : 'Join Room'}
+          </button>
+        </div>
+
+        {error && <div className="error-message">{error}</div>}
       </div>
     </div>
   );

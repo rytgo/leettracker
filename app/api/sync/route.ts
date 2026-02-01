@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { checkTodayStatus } from '@/lib/leetcode';
 import { upsertTodayResult } from '@/lib/streaks';
@@ -9,13 +9,20 @@ import { User } from '@/lib/types';
  * 
  * Fetches LeetCode data for all users and updates database
  * GET /api/sync
+ * GET /api/sync?roomId=xxx - Sync specific room only
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
-        // Fetch all users from database
-        const { data: users, error: usersError } = await supabase
-            .from('users')
-            .select('*');
+        const { searchParams } = new URL(request.url);
+        const roomId = searchParams.get('roomId');
+
+        // Build query - optionally filter by room
+        let query = supabase.from('users').select('*');
+        if (roomId) {
+            query = query.eq('room_id', roomId);
+        }
+
+        const { data: users, error: usersError } = await query;
 
         if (usersError) {
             console.error('Error fetching users:', usersError);
@@ -27,7 +34,7 @@ export async function GET() {
 
         if (!users || users.length === 0) {
             return NextResponse.json(
-                { message: 'No users configured yet. Add users in Supabase.' },
+                { message: 'No users to sync.' },
                 { status: 200 }
             );
         }
