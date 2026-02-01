@@ -1,65 +1,184 @@
-import Image from "next/image";
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import { getStreaks } from '@/lib/streaks';
+import { getSecondsUntilMidnight, formatTime, getPacificDate } from '@/lib/timezone';
+import { UserWithStreaks } from '@/lib/types';
+import { DateTime } from 'luxon';
 
 export default function Home() {
+  const [users, setUsers] = useState<UserWithStreaks[]>([]);
+  const [countdown, setCountdown] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+
+  const formatCountdown = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const fetchData = async () => {
+    try {
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('*')
+        .order('display_name');
+
+      if (usersError) throw usersError;
+
+      if (!usersData || usersData.length === 0) {
+        setUsers([]);
+        setLoading(false);
+        return;
+      }
+
+      const today = getPacificDate();
+      const enrichedUsers = await Promise.all(
+        usersData.map(async (user) => {
+          const { data: todayResult } = await supabase
+            .from('daily_results')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('date', today)
+            .single();
+
+          const streaks = await getStreaks(user.id);
+
+          return {
+            ...user,
+            currentStreak: streaks.current,
+            longestStreak: streaks.longest,
+            todayStatus: {
+              isDone: todayResult?.did_solve || false,
+              solveTime: todayResult?.solved_at || null,
+              problemTitle: todayResult?.problem_title || null,
+              problemSlug: todayResult?.problem_slug || null,
+              submissionId: todayResult?.submission_id || null,
+            },
+          };
+        })
+      );
+
+      setUsers(enrichedUsers);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      const seconds = getSecondsUntilMidnight();
+      setCountdown(formatCountdown(seconds));
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="container">
+        <div className="header">
+          <h1 className="title">LEETTRACKER</h1>
+          <p className="subtitle">daily accountability</p>
+        </div>
+        <div className="loading">
+          <div className="loading-spinner"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (users.length === 0) {
+    return (
+      <div className="container">
+        <div className="header">
+          <h1 className="title">LEETTRACKER</h1>
+          <p className="subtitle">daily accountability</p>
+        </div>
+        <div className="empty-state">
+          <div className="empty-state-icon">👥</div>
+          <p>No users being tracked yet.</p>
+          <Link href="/add-user" className="nav-link" style={{ marginTop: '1rem', display: 'inline-block' }}>
+            Add your first user →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="container">
+      <div className="header">
+        <h1 className="title">LEETTRACKER</h1>
+        <p className="subtitle">daily accountability</p>
+      </div>
+
+      <div className="countdown-section">
+        <div className="countdown-label">Time remaining today</div>
+        <div className="countdown-time">{countdown}</div>
+      </div>
+
+      <div className="users-grid">
+        {users.map((user) => {
+          const { todayStatus } = user;
+          const solveTimeDisplay = todayStatus.solveTime
+            ? formatTime(DateTime.fromISO(todayStatus.solveTime))
+            : null;
+
+          return (
+            <div
+              key={user.id}
+              className={`user-card ${todayStatus.isDone ? 'solved' : 'not-solved'}`}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+              <div className="user-header">
+                <span className="user-name">{user.display_name}</span>
+                <span className={`user-status-badge ${todayStatus.isDone ? 'solved' : 'not-solved'}`}>
+                  {todayStatus.isDone ? '✓ DONE' : '✗ PENDING'}
+                </span>
+              </div>
+
+              {todayStatus.isDone && (
+                <div className="user-details">
+                  Solved at {solveTimeDisplay}
+                  {todayStatus.problemTitle && ` · ${todayStatus.problemTitle}`}
+                </div>
+              )}
+
+              <div className="streaks">
+                <div className="streak-item">
+                  <span>🔥</span>
+                  <span>Current:</span>
+                  <span className="streak-value">{user.currentStreak}</span>
+                </div>
+                <div className="streak-item">
+                  <span>⭐</span>
+                  <span>Best:</span>
+                  <span className="streak-value">{user.longestStreak}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="nav-links">
+        <Link href="/history" className="nav-link">View History</Link>
+        <Link href="/add-user" className="nav-link">Add User</Link>
+        <Link href="/remove-user" className="nav-link">Remove</Link>
+      </div>
     </div>
   );
 }

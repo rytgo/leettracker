@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# project-specific (don't commit these)
+DEBUG_REPORT.md
+DEPLOYMENT.md
+QUICKSTART.md
+brain/
