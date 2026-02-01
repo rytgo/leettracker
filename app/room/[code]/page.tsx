@@ -8,6 +8,7 @@ import { getStreaks } from '@/lib/streaks';
 import { getSecondsUntilMidnight, formatTime, getPacificDate } from '@/lib/timezone';
 import { UserWithStreaks } from '@/lib/types';
 import { DateTime } from 'luxon';
+import { saveRecentRoom } from '@/app/page';
 
 interface RoomInfo {
     id: string;
@@ -27,12 +28,20 @@ export default function RoomDashboard() {
     const [syncing, setSyncing] = useState(false);
     const [lastSynced, setLastSynced] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
 
     const formatCountdown = (seconds: number): string => {
         const hours = Math.floor(seconds / 3600);
         const minutes = Math.floor((seconds % 3600) / 60);
         const secs = seconds % 60;
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const handleCopyLink = () => {
+        const url = `${window.location.origin}/room/${roomCode}`;
+        navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
 
     const fetchRoom = async () => {
@@ -133,6 +142,7 @@ export default function RoomDashboard() {
         const init = async () => {
             const roomData = await fetchRoom();
             if (roomData) {
+                saveRecentRoom(roomCode); // Save to recent rooms
                 await fetchData(roomData.id);
             }
         };
@@ -269,8 +279,14 @@ export default function RoomDashboard() {
                 <Link href={`/room/${roomCode}/remove-user`} className="nav-link">Remove</Link>
             </div>
 
-            <div className="room-share">
-                <p>Share this room: <code>{`leettrackerr.vercel.app/room/${roomCode}`}</code></p>
+            <div className="copy-link-section">
+                <span className="copy-link-url">{`${typeof window !== 'undefined' ? window.location.origin : ''}/room/${roomCode}`}</span>
+                <button
+                    onClick={handleCopyLink}
+                    className={`copy-link-btn ${copied ? 'copied' : ''}`}
+                >
+                    {copied ? '✓ Copied!' : 'Copy Link'}
+                </button>
             </div>
         </div>
     );

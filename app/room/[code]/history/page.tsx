@@ -5,23 +5,18 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { DateTime } from 'luxon';
-import { PACIFIC_TZ, getPacificDate } from '@/lib/timezone';
+import { PACIFIC_TZ } from '@/lib/timezone';
 
 interface RoomInfo {
     id: string;
     code: string;
 }
 
-interface User {
+interface UserHistory {
     id: string;
-    leetcode_username: string;
     display_name: string;
-}
-
-interface DailyResult {
-    date: string;
-    did_solve: boolean;
-    problem_title?: string;
+    days: { date: string; solved: boolean }[];
+    solvedCount: number;
 }
 
 export default function RoomHistory() {
@@ -29,9 +24,10 @@ export default function RoomHistory() {
     const roomCode = params.code as string;
 
     const [room, setRoom] = useState<RoomInfo | null>(null);
-    const [users, setUsers] = useState<User[]>([]);
-    const [results, setResults] = useState<Record<string, DailyResult[]>>({});
+    const [usersHistory, setUsersHistory] = useState<UserHistory[]>([]);
     const [loading, setLoading] = useState(true);
+    const [todayDate, setTodayDate] = useState<string>('');
+    const [hoveredDay, setHoveredDay] = useState<string | null>(null);
 
     useEffect(() => {
         const init = async () => {
@@ -39,49 +35,56 @@ export default function RoomHistory() {
             if (res.ok) {
                 const data = await res.json();
                 setRoom(data.room);
-                await fetchData(data.room.id);
+                await fetchHistory(data.room.id);
             }
             setLoading(false);
         };
         init();
     }, [roomCode]);
 
-    const fetchData = async (roomId: string) => {
-        // Fetch users in this room
-        const { data: usersData } = await supabase
+    const fetchHistory = async (roomId: string) => {
+        const { data: usersData, error: usersError } = await supabase
             .from('users')
             .select('*')
             .eq('room_id', roomId)
             .order('display_name');
 
-        if (!usersData) return;
-        setUsers(usersData);
+        if (usersError || !usersData || usersData.length === 0) return;
 
-        // Fetch last 30 days of results for each user
-        const resultsMap: Record<string, DailyResult[]> = {};
+        const today = DateTime.now().setZone(PACIFIC_TZ);
+        setTodayDate(today.toISODate()!);
 
-        for (const user of usersData) {
-            const { data: dailyResults } = await supabase
-                .from('daily_results')
-                .select('date, did_solve, problem_title')
-                .eq('user_id', user.id)
-                .order('date', { ascending: false })
-                .limit(30);
-
-            resultsMap[user.id] = dailyResults || [];
+        const dates: string[] = [];
+        for (let i = 29; i >= 0; i--) {
+            dates.push(today.minus({ days: i }).toISODate()!);
         }
 
-        setResults(resultsMap);
+        const { data: results, error: resultsError } = await supabase
+            .from('daily_results')
+            .select('*')
+            .in('user_id', usersData.map(u => u.id))
+            .gte('date', dates[0])
+            .lte('date', dates[dates.length - 1]);
+
+        if (resultsError) return;
+
+        const history: UserHistory[] = usersData.map((user) => {
+            const userResults = results?.filter((r) => r.user_id === user.id) || [];
+            const days = dates.map((date) => {
+                const result = userResults.find((r) => r.date === date);
+                return { date, solved: result?.did_solve || false };
+            });
+            const solvedCount = days.filter((d) => d.solved).length;
+            return { id: user.id, display_name: user.display_name, days, solvedCount };
+        });
+
+        setUsersHistory(history);
     };
 
-    // Generate last 30 days
-    const getLast30Days = () => {
-        const days = [];
-        const today = DateTime.now().setZone(PACIFIC_TZ);
-        for (let i = 0; i < 30; i++) {
-            days.push(today.minus({ days: i }).toISODate()!);
-        }
-        return days;
+    const formatDate = (dateStr: string): string => {
+        const [, month, day] = dateStr.split('-');
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${monthNames[parseInt(month) - 1]} ${parseInt(day)}`;
     };
 
     if (loading) {
@@ -92,14 +95,10 @@ export default function RoomHistory() {
                     <h1 className="title">HISTORY</h1>
                     <p className="subtitle">room: {roomCode}</p>
                 </div>
-                <div className="loading">
-                    <div className="loading-spinner"></div>
-                </div>
+                <div className="loading"><div className="loading-spinner"></div></div>
             </div>
         );
     }
-
-    const days = getLast30Days();
 
     return (
         <div className="container">
@@ -107,43 +106,118 @@ export default function RoomHistory() {
 
             <div className="header">
                 <h1 className="title">HISTORY</h1>
-                <p className="subtitle">room: {roomCode}</p>
+                <p className="subtitle">room: {roomCode} · last 30 days</p>
             </div>
 
-            {users.length === 0 ? (
+            {usersHistory.length === 0 ? (
                 <div className="empty-state">
-                    <p>No users in this room.</p>
+                    <p>No users in this room yet.</p>
                 </div>
             ) : (
-                <div className="history-grid">
-                    {users.map((user) => {
-                        const userResults = results[user.id] || [];
-                        const resultMap = new Map(
-                            userResults.map((r) => [r.date, r])
-                        );
-
-                        return (
-                            <div key={user.id} className="history-card">
-                                <h3 className="history-user-name">{user.display_name}</h3>
-                                <p className="history-username">@{user.leetcode_username}</p>
-                                <div className="contribution-grid">
-                                    {days.map((date) => {
-                                        const result = resultMap.get(date);
-                                        const solved = result?.did_solve ?? false;
-                                        const formattedDate = DateTime.fromISO(date).toFormat('MMM d');
-
-                                        return (
-                                            <div
-                                                key={date}
-                                                className={`contribution-day ${solved ? 'solved' : 'missed'}`}
-                                                title={`${formattedDate}: ${solved ? (result?.problem_title || 'Solved') : 'Not solved'}`}
-                                            />
-                                        );
-                                    })}
-                                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1.5rem' }}>
+                    {usersHistory.map((user) => (
+                        <div key={user.id} style={{
+                            background: '#27272a',
+                            border: '1px solid #3f3f46',
+                            borderRadius: '8px',
+                            padding: '1.5rem',
+                        }}>
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginBottom: '1rem',
+                            }}>
+                                <span style={{ fontSize: '1.1rem', fontWeight: 600, color: '#fafafa' }}>
+                                    {user.display_name}
+                                </span>
+                                <span style={{ fontSize: '0.85rem', color: '#a1a1aa' }}>
+                                    {user.solvedCount}/30 days
+                                </span>
                             </div>
-                        );
-                    })}
+
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(10, 28px)',
+                                gap: '6px',
+                                marginBottom: '1rem',
+                            }}>
+                                {user.days.map((day) => {
+                                    const dayKey = `${user.id}-${day.date}`;
+                                    const isHovered = hoveredDay === dayKey;
+                                    const isToday = day.date === todayDate;
+
+                                    return (
+                                        <div
+                                            key={day.date}
+                                            style={{
+                                                position: 'relative',
+                                                width: '28px',
+                                                height: '28px',
+                                                borderRadius: '4px',
+                                                backgroundColor: day.solved ? '#22c55e' : '#3f3f46',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.15s ease',
+                                                transform: isHovered ? 'scale(1.3)' : 'scale(1)',
+                                                boxShadow: isToday
+                                                    ? '0 0 0 2px #facc15'
+                                                    : isHovered
+                                                        ? '0 4px 12px rgba(0,0,0,0.4)'
+                                                        : 'none',
+                                                zIndex: isHovered ? 10 : 1,
+                                            }}
+                                            onMouseEnter={() => setHoveredDay(dayKey)}
+                                            onMouseLeave={() => setHoveredDay(null)}
+                                        >
+                                            {isHovered && (
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    bottom: 'calc(100% + 8px)',
+                                                    left: '50%',
+                                                    transform: 'translateX(-50%)',
+                                                    background: '#fafafa',
+                                                    color: '#18181b',
+                                                    padding: '6px 10px',
+                                                    borderRadius: '6px',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: 500,
+                                                    whiteSpace: 'nowrap',
+                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                                                    zIndex: 100,
+                                                }}>
+                                                    {formatDate(day.date)}: {day.solved ? '✓ Solved' : '✗ Missed'}
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        top: '100%',
+                                                        left: '50%',
+                                                        transform: 'translateX(-50%)',
+                                                        width: 0,
+                                                        height: 0,
+                                                        borderLeft: '6px solid transparent',
+                                                        borderRight: '6px solid transparent',
+                                                        borderTop: '6px solid #fafafa',
+                                                    }} />
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                fontSize: '0.75rem',
+                                color: '#a1a1aa',
+                            }}>
+                                <div style={{ width: '14px', height: '14px', borderRadius: '3px', background: '#3f3f46' }} />
+                                <span>Missed</span>
+                                <div style={{ width: '14px', height: '14px', borderRadius: '3px', background: '#22c55e', marginLeft: '0.75rem' }} />
+                                <span>Solved</span>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
         </div>

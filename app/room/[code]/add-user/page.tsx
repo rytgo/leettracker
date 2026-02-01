@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { useParams, useRouter } from 'next/navigation';
+import { usePinContext } from '@/lib/pin-context';
+import PinPrompt from '@/components/PinPrompt';
 
 interface RoomInfo {
     id: string;
@@ -13,14 +14,18 @@ interface RoomInfo {
 
 export default function AddUserToRoom() {
     const params = useParams();
+    const router = useRouter();
     const roomCode = params.code as string;
+    const { verifyPin, isVerified } = usePinContext();
 
     const [room, setRoom] = useState<RoomInfo | null>(null);
     const [username, setUsername] = useState('');
     const [displayName, setDisplayName] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [showPinPrompt, setShowPinPrompt] = useState(false);
 
     useEffect(() => {
         const fetchRoom = async () => {
@@ -28,14 +33,27 @@ export default function AddUserToRoom() {
             if (res.ok) {
                 const data = await res.json();
                 setRoom(data.room);
+                // Show PIN prompt if room has PIN and not yet verified
+                if (data.room.hasPin && !isVerified(roomCode)) {
+                    setShowPinPrompt(true);
+                }
             }
+            setLoading(false);
         };
         fetchRoom();
-    }, [roomCode]);
+    }, [roomCode, isVerified]);
+
+    const handlePinVerify = async (pin: string): Promise<boolean> => {
+        const valid = await verifyPin(roomCode, pin);
+        if (valid) {
+            setShowPinPrompt(false);
+        }
+        return valid;
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
+        setSubmitting(true);
         setError(null);
         setSuccess(false);
 
@@ -62,9 +80,27 @@ export default function AddUserToRoom() {
         } catch (err: any) {
             setError(err.message);
         } finally {
-            setLoading(false);
+            setSubmitting(false);
         }
     };
+
+    if (loading) {
+        return (
+            <div className="container">
+                <div className="loading"><div className="loading-spinner"></div></div>
+            </div>
+        );
+    }
+
+    if (showPinPrompt && room?.hasPin) {
+        return (
+            <PinPrompt
+                roomCode={roomCode}
+                onVerify={handlePinVerify}
+                onCancel={() => router.push(`/room/${roomCode}`)}
+            />
+        );
+    }
 
     return (
         <div className="container">
@@ -105,8 +141,8 @@ export default function AddUserToRoom() {
                 {error && <div className="error-message">{error}</div>}
                 {success && <div className="success-message">User added successfully!</div>}
 
-                <button type="submit" disabled={loading} className="btn-primary">
-                    {loading ? 'Adding...' : 'Add User'}
+                <button type="submit" disabled={submitting} className="btn-primary">
+                    {submitting ? 'Adding...' : 'Add User'}
                 </button>
             </form>
         </div>

@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { usePinContext } from '@/lib/pin-context';
+import PinPrompt from '@/components/PinPrompt';
 
 interface RoomInfo {
     id: string;
@@ -21,6 +23,7 @@ export default function RemoveUserFromRoom() {
     const params = useParams();
     const router = useRouter();
     const roomCode = params.code as string;
+    const { verifyPin, isVerified } = usePinContext();
 
     const [room, setRoom] = useState<RoomInfo | null>(null);
     const [users, setUsers] = useState<User[]>([]);
@@ -28,6 +31,7 @@ export default function RemoveUserFromRoom() {
     const [removing, setRemoving] = useState<string | null>(null);
     const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [showPinPrompt, setShowPinPrompt] = useState(false);
 
     useEffect(() => {
         const init = async () => {
@@ -35,12 +39,16 @@ export default function RemoveUserFromRoom() {
             if (res.ok) {
                 const data = await res.json();
                 setRoom(data.room);
-                await fetchUsers(data.room.id);
+                if (data.room.hasPin && !isVerified(roomCode)) {
+                    setShowPinPrompt(true);
+                } else {
+                    await fetchUsers(data.room.id);
+                }
             }
             setLoading(false);
         };
         init();
-    }, [roomCode]);
+    }, [roomCode, isVerified]);
 
     const fetchUsers = async (roomId: string) => {
         const { data, error } = await supabase
@@ -52,6 +60,15 @@ export default function RemoveUserFromRoom() {
         if (!error && data) {
             setUsers(data);
         }
+    };
+
+    const handlePinVerify = async (pin: string): Promise<boolean> => {
+        const valid = await verifyPin(roomCode, pin);
+        if (valid && room) {
+            setShowPinPrompt(false);
+            await fetchUsers(room.id);
+        }
+        return valid;
     };
 
     const handleRemove = async (username: string) => {
@@ -84,15 +101,18 @@ export default function RemoveUserFromRoom() {
     if (loading) {
         return (
             <div className="container">
-                <Link href={`/room/${roomCode}`} className="back-link">← Back</Link>
-                <div className="header">
-                    <h1 className="title">REMOVE USER</h1>
-                    <p className="subtitle">room: {roomCode}</p>
-                </div>
-                <div className="loading">
-                    <div className="loading-spinner"></div>
-                </div>
+                <div className="loading"><div className="loading-spinner"></div></div>
             </div>
+        );
+    }
+
+    if (showPinPrompt && room?.hasPin) {
+        return (
+            <PinPrompt
+                roomCode={roomCode}
+                onVerify={handlePinVerify}
+                onCancel={() => router.push(`/room/${roomCode}`)}
+            />
         );
     }
 
