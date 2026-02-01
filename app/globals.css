@@ -92,6 +92,35 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.refresh-btn {
+  margin-top: 1rem;
+  padding: 0.5rem 1.25rem;
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.refresh-btn:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.last-synced {
+  margin-top: 0.5rem;
+  font-size: 0.7rem;
+  color: var(--fg-muted);
+}
+
 /* ========== USER CARDS ========== */
 .users-grid {
   display: flex;

@@ -12,6 +12,8 @@ export default function Home() {
   const [users, setUsers] = useState<UserWithStreaks[]>([]);
   const [countdown, setCountdown] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSynced, setLastSynced] = useState<string | null>(null);
 
   const formatCountdown = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
@@ -67,6 +69,19 @@ export default function Home() {
     } catch (error) {
       console.error('Error fetching data:', error);
       setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setSyncing(true);
+    try {
+      await fetch('/api/sync');
+      await fetchData();
+      setLastSynced(new Date().toLocaleTimeString());
+    } catch (error) {
+      console.error('Sync failed:', error);
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -129,6 +144,16 @@ export default function Home() {
       <div className="countdown-section">
         <div className="countdown-label">Time remaining today</div>
         <div className="countdown-time">{countdown}</div>
+        <button
+          onClick={handleRefresh}
+          disabled={syncing}
+          className="refresh-btn"
+        >
+          {syncing ? '⟳ Syncing...' : '⟳ Refresh Now'}
+        </button>
+        {lastSynced && (
+          <div className="last-synced">Last synced: {lastSynced}</div>
+        )}
       </div>
 
       <div className="users-grid">
