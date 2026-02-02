@@ -1,4 +1,4 @@
-# LeetTracker
+# [LeetTracker](https://leettrackerr.vercel.app/)
 
 A simple daily LeetCode accountability tracker for groups. Made this because my friends and I made a challenge to do daily leetcode problems and I was too lazy to manually check everyone's profiles.
 
