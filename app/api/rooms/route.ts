@@ -15,7 +15,7 @@ function generateRoomCode(): string {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json().catch(() => ({}));
-        const { pin } = body; // Optional PIN
+        const { pin, timezone } = body; // Optional PIN and timezone
 
         // Generate unique code
         let code = generateRoomCode();
@@ -38,7 +38,8 @@ export async function POST(request: NextRequest) {
             .from('rooms')
             .insert([{
                 code,
-                pin: pin?.trim() || null
+                pin: pin?.trim() || null,
+                timezone: timezone || 'America/Los_Angeles'
             }])
             .select()
             .single();
@@ -73,7 +74,7 @@ export async function GET(request: NextRequest) {
 
         const { data: room, error } = await supabase
             .from('rooms')
-            .select('id, code, created_at, pin')
+            .select('id, code, created_at, pin, timezone')
             .eq('code', code)
             .single();
 
@@ -91,7 +92,8 @@ export async function GET(request: NextRequest) {
                 id: room.id,
                 code: room.code,
                 created_at: room.created_at,
-                hasPin: !!room.pin
+                hasPin: !!room.pin,
+                timezone: room.timezone || 'America/Los_Angeles'
             }
         });
 

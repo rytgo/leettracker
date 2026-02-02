@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { DailyResult } from './types';
-import { getPacificDate } from './timezone';
+import { getDateForTimezone, DEFAULT_TIMEZONE } from './timezone';
 
 /**
  * Calculate current streak for a user
@@ -11,10 +11,11 @@ import { getPacificDate } from './timezone';
  * - Only break the streak after midnight passes without a solve
  * 
  * @param userId - User UUID
+ * @param timezone - Timezone to use for date calculations
  * @returns Object with streak count and whether today is pending
  */
-export async function calculateCurrentStreak(userId: string): Promise<number> {
-    const today = getPacificDate();
+export async function calculateCurrentStreak(userId: string, timezone: string = DEFAULT_TIMEZONE): Promise<number> {
+    const today = getDateForTimezone(timezone);
 
     // Fetch all results for this user, ordered by date descending
     const { data: results, error } = await supabase
@@ -141,13 +142,15 @@ export async function calculateLongestStreak(userId: string): Promise<number> {
 /**
  * Get both current and longest streak for a user
  * More efficient than calling both functions separately
+ * @param userId - User UUID
+ * @param timezone - Timezone to use for date calculations
  */
-export async function getStreaks(userId: string): Promise<{
+export async function getStreaks(userId: string, timezone: string = DEFAULT_TIMEZONE): Promise<{
     current: number;
     longest: number;
 }> {
     const [current, longest] = await Promise.all([
-        calculateCurrentStreak(userId),
+        calculateCurrentStreak(userId, timezone),
         calculateLongestStreak(userId),
     ]);
 
@@ -164,6 +167,7 @@ export async function getStreaks(userId: string): Promise<{
  * @param problemTitle - Problem title (nullable)
  * @param problemSlug - Problem slug (nullable)
  * @param submissionId - Submission ID (nullable)
+ * @param timezone - Timezone to use for date calculation
  */
 export async function upsertTodayResult(
     userId: string,
@@ -171,9 +175,10 @@ export async function upsertTodayResult(
     solvedAt: string | null,
     problemTitle: string | null,
     problemSlug: string | null,
-    submissionId: string | null
+    submissionId: string | null,
+    timezone: string = DEFAULT_TIMEZONE
 ): Promise<void> {
-    const today = getPacificDate();
+    const today = getDateForTimezone(timezone);
 
     const { error } = await supabase
         .from('daily_results')
@@ -201,9 +206,11 @@ export async function upsertTodayResult(
 
 /**
  * Get today's result for a user (if it exists)
+ * @param userId - User UUID
+ * @param timezone - Timezone to use for date calculation
  */
-export async function getTodayResult(userId: string): Promise<DailyResult | null> {
-    const today = getPacificDate();
+export async function getTodayResult(userId: string, timezone: string = DEFAULT_TIMEZONE): Promise<DailyResult | null> {
+    const today = getDateForTimezone(timezone);
 
     const { data, error } = await supabase
         .from('daily_results')
@@ -227,6 +234,7 @@ export async function getTodayResult(userId: string): Promise<DailyResult | null
  * 
  * @param userId - User UUID
  * @param submissions - Array of submissions to save
+ * @param timezone - Timezone to use for date calculation
  */
 export async function saveSubmissions(
     userId: string,
@@ -235,11 +243,12 @@ export async function saveSubmissions(
         titleSlug: string;
         timestamp: number;
         id: string;
-    }[]
+    }[],
+    timezone: string = DEFAULT_TIMEZONE
 ): Promise<void> {
     if (submissions.length === 0) return;
 
-    const today = getPacificDate();
+    const today = getDateForTimezone(timezone);
 
     // Transform to database format
     const rows = submissions.map((sub) => ({

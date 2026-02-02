@@ -3,6 +3,16 @@ import { supabase } from '@/lib/supabase';
 import { checkTodayStatus, getAllTodaySubmissions } from '@/lib/leetcode';
 import { upsertTodayResult, saveSubmissions } from '@/lib/streaks';
 import { User } from '@/lib/types';
+import { DEFAULT_TIMEZONE } from '@/lib/timezone';
+
+interface UserWithRoom extends User {
+    room_id: string;
+}
+
+interface RoomTimezone {
+    id: string;
+    timezone: string;
+}
 
 /**
  * Background sync endpoint - called by Vercel Cron every 5 minutes
@@ -39,12 +49,28 @@ export async function GET(request: NextRequest) {
             );
         }
 
+        // Get unique room IDs and fetch their timezones
+        const roomIds = [...new Set(users.map((u: UserWithRoom) => u.room_id).filter(Boolean))];
+        const { data: rooms } = await supabase
+            .from('rooms')
+            .select('id, timezone')
+            .in('id', roomIds);
+
+        // Create room timezone lookup map
+        const roomTimezones: Record<string, string> = {};
+        rooms?.forEach((room: RoomTimezone) => {
+            roomTimezones[room.id] = room.timezone || DEFAULT_TIMEZONE;
+        });
+
         // Process each user
         const results = await Promise.all(
-            users.map(async (user: User) => {
+            users.map(async (user: UserWithRoom) => {
                 try {
+                    // Get timezone for this user's room
+                    const timezone = user.room_id ? (roomTimezones[user.room_id] || DEFAULT_TIMEZONE) : DEFAULT_TIMEZONE;
+
                     // Check today's LeetCode status (for daily_results)
-                    const status = await checkTodayStatus(user.leetcode_username);
+                    const status = await checkTodayStatus(user.leetcode_username, timezone);
 
                     // Update daily_results table (keeps the first/most-recent solve)
                     await upsertTodayResult(
@@ -53,13 +79,14 @@ export async function GET(request: NextRequest) {
                         status.solveTime,
                         status.problemTitle,
                         status.problemSlug,
-                        status.submissionId
+                        status.submissionId,
+                        timezone
                     );
 
                     // Get ALL submissions for today and save to submissions table
-                    const allSubmissions = await getAllTodaySubmissions(user.leetcode_username);
+                    const allSubmissions = await getAllTodaySubmissions(user.leetcode_username, timezone);
                     if (allSubmissions.length > 0) {
-                        await saveSubmissions(user.id, allSubmissions);
+                        await saveSubmissions(user.id, allSubmissions, timezone);
                     }
 
                     return {
@@ -68,6 +95,7 @@ export async function GET(request: NextRequest) {
                         isDone: status.isDone,
                         problemTitle: status.problemTitle,
                         totalSubmissions: allSubmissions.length,
+                        timezone,
                     };
                 } catch (error) {
                     console.error(`Error processing user ${user.leetcode_username}:`, error);
@@ -97,4 +125,3 @@ export async function GET(request: NextRequest) {
         );
     }
 }
-

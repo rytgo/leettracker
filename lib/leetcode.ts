@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { LeetCodeResponse, DailyStatus } from './types';
-import { getPacificDate, unixToPacific, isToday, formatTime } from './timezone';
+import { unixToTimezone, isTodayInTimezone, formatTime, DEFAULT_TIMEZONE } from './timezone';
 
 /**
  * LeetCode GraphQL API endpoint
@@ -67,13 +67,14 @@ export async function fetchLeetCodeSubmissions(
 }
 
 /**
- * Determine if a user has completed a LeetCode problem "today" (Pacific timezone)
+ * Determine if a user has completed a LeetCode problem "today" in the given timezone
  * and return details about their solve
  * 
  * @param username - LeetCode username to check
+ * @param timezone - Timezone to use for "today" calculation
  * @returns DailyStatus object with completion info
  */
-export async function checkTodayStatus(username: string): Promise<DailyStatus> {
+export async function checkTodayStatus(username: string, timezone: string = DEFAULT_TIMEZONE): Promise<DailyStatus> {
     try {
         const response = await fetchLeetCodeSubmissions(username);
         const submissions = response.data.recentAcSubmissionList;
@@ -88,10 +89,10 @@ export async function checkTodayStatus(username: string): Promise<DailyStatus> {
             };
         }
 
-        // Filter submissions that happened "today" in Pacific timezone
+        // Filter submissions that happened "today" in the given timezone
         const todaySubmissions = submissions.filter((sub) => {
             const timestamp = parseInt(sub.timestamp, 10);
-            return isToday(timestamp);
+            return isTodayInTimezone(timestamp, timezone);
         });
 
         if (todaySubmissions.length === 0) {
@@ -108,11 +109,11 @@ export async function checkTodayStatus(username: string): Promise<DailyStatus> {
         // Submissions are already sorted by timestamp descending
         const latestToday = todaySubmissions[0];
         const timestamp = parseInt(latestToday.timestamp, 10);
-        const solveTimePT = unixToPacific(timestamp);
+        const solveTime = unixToTimezone(timestamp, timezone);
 
         return {
             isDone: true,
-            solveTime: solveTimePT.toISO(),
+            solveTime: solveTime.toISO(),
             problemTitle: latestToday.title,
             problemSlug: latestToday.titleSlug,
             submissionId: latestToday.id,
@@ -135,9 +136,10 @@ export async function checkTodayStatus(username: string): Promise<DailyStatus> {
  * Used for storing complete submission history
  * 
  * @param username - LeetCode username
+ * @param timezone - Timezone to use for "today" calculation
  * @returns Array of all today's submissions
  */
-export async function getAllTodaySubmissions(username: string): Promise<{
+export async function getAllTodaySubmissions(username: string, timezone: string = DEFAULT_TIMEZONE): Promise<{
     title: string;
     titleSlug: string;
     timestamp: number;
@@ -151,11 +153,11 @@ export async function getAllTodaySubmissions(username: string): Promise<{
             return [];
         }
 
-        // Filter to only today's submissions
+        // Filter to only today's submissions in the given timezone
         return submissions
             .filter((sub) => {
                 const timestamp = parseInt(sub.timestamp, 10);
-                return isToday(timestamp);
+                return isTodayInTimezone(timestamp, timezone);
             })
             .map((sub) => ({
                 title: sub.title,

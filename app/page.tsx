@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { COMMON_TIMEZONES, DEFAULT_TIMEZONE } from '@/lib/timezone';
 
 interface RecentRoom {
   code: string;
@@ -45,6 +46,8 @@ export default function LandingPage() {
   const [pin, setPin] = useState('');
   const [recentRooms, setRecentRooms] = useState<RecentRoom[]>([]);
   const [showInfo, setShowInfo] = useState(false);
+  const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
+  const [showTimezone, setShowTimezone] = useState(false);
 
   useEffect(() => {
     setRecentRooms(getRecentRooms());
@@ -58,7 +61,10 @@ export default function LandingPage() {
       const res = await fetch('/api/rooms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin: showPinInput ? pin : null }),
+        body: JSON.stringify({
+          pin: showPinInput ? pin : null,
+          timezone: showTimezone ? timezone : DEFAULT_TIMEZONE
+        }),
       });
 
       if (!res.ok) {
@@ -162,6 +168,32 @@ export default function LandingPage() {
               className="form-input"
               style={{ marginBottom: '1rem' }}
             />
+          )}
+
+          <div className="pin-toggle">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={showTimezone}
+                onChange={(e) => setShowTimezone(e.target.checked)}
+              />
+              <span>Set timezone (default: Pacific)</span>
+            </label>
+          </div>
+
+          {showTimezone && (
+            <select
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              className="form-input"
+              style={{ marginBottom: '1rem' }}
+            >
+              {COMMON_TIMEZONES.map((tz) => (
+                <option key={tz.value} value={tz.value}>
+                  {tz.label}
+                </option>
+              ))}
+            </select>
           )}
 
           <button

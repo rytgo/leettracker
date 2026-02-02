@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getStreaks } from '@/lib/streaks';
-import { getSecondsUntilMidnight, formatTime, getPacificDate } from '@/lib/timezone';
+import { getSecondsUntilMidnight, formatTime, getDateForTimezone, getTimezoneLabel, DEFAULT_TIMEZONE } from '@/lib/timezone';
 import { UserWithStreaks } from '@/lib/types';
 import { DateTime } from 'luxon';
 import { saveRecentRoom } from '@/app/page';
@@ -14,6 +14,7 @@ interface RoomInfo {
     id: string;
     code: string;
     hasPin: boolean;
+    timezone: string;
 }
 
 export default function RoomDashboard() {
@@ -53,7 +54,10 @@ export default function RoomDashboard() {
                 return null;
             }
             const data = await res.json();
-            setRoom(data.room);
+            setRoom({
+                ...data.room,
+                timezone: data.room.timezone || DEFAULT_TIMEZONE
+            });
             return data.room;
         } catch (err) {
             setError('Failed to load room');
@@ -78,7 +82,7 @@ export default function RoomDashboard() {
                 return;
             }
 
-            const today = getPacificDate();
+            const today = getDateForTimezone(room?.timezone || DEFAULT_TIMEZONE);
             const enrichedUsers = await Promise.all(
                 usersData.map(async (user) => {
                     const { data: todayResult } = await supabase
@@ -88,7 +92,7 @@ export default function RoomDashboard() {
                         .eq('date', today)
                         .single();
 
-                    const streaks = await getStreaks(user.id);
+                    const streaks = await getStreaks(user.id, room?.timezone || DEFAULT_TIMEZONE);
 
                     return {
                         ...user,
@@ -250,7 +254,7 @@ export default function RoomDashboard() {
 
                             {todayStatus.isDone && (
                                 <div className="user-details">
-                                    Solved at {solveTimeDisplay}
+                                    Solved at {solveTimeDisplay} {getTimezoneLabel(room?.timezone || DEFAULT_TIMEZONE)}
                                     {todayStatus.problemTitle && todayStatus.problemSlug && (
                                         <>
                                             {' · '}
