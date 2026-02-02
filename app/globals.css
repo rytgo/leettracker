@@ -185,9 +185,20 @@ body {
 }
 
 .user-details {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--fg-muted);
-  margin-bottom: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.problem-link {
+  color: var(--accent);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.problem-link:hover {
+  text-decoration: underline;
+  opacity: 0.8;
 }
 
 .streaks {

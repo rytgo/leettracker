@@ -131,6 +131,45 @@ export async function checkTodayStatus(username: string): Promise<DailyStatus> {
 }
 
 /**
+ * Get ALL accepted submissions from today (not just the first one)
+ * Used for storing complete submission history
+ * 
+ * @param username - LeetCode username
+ * @returns Array of all today's submissions
+ */
+export async function getAllTodaySubmissions(username: string): Promise<{
+    title: string;
+    titleSlug: string;
+    timestamp: number;
+    id: string;
+}[]> {
+    try {
+        const response = await fetchLeetCodeSubmissions(username);
+        const submissions = response.data.recentAcSubmissionList;
+
+        if (!submissions || submissions.length === 0) {
+            return [];
+        }
+
+        // Filter to only today's submissions
+        return submissions
+            .filter((sub) => {
+                const timestamp = parseInt(sub.timestamp, 10);
+                return isToday(timestamp);
+            })
+            .map((sub) => ({
+                title: sub.title,
+                titleSlug: sub.titleSlug,
+                timestamp: parseInt(sub.timestamp, 10),
+                id: sub.id,
+            }));
+    } catch (error) {
+        console.error(`Error getting all submissions for ${username}:`, error);
+        return [];
+    }
+}
+
+/**
  * Get a human-readable summary of today's status
  * Used for logging and debugging
  */
@@ -142,3 +181,4 @@ export function formatDailyStatus(username: string, status: DailyStatus): string
     const time = status.solveTime ? formatTime(DateTime.fromISO(status.solveTime)) : 'Unknown';
     return `${username}: ✅ Solved at ${time} - ${status.problemTitle}`;
 }
+

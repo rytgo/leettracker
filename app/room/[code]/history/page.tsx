@@ -12,10 +12,19 @@ interface RoomInfo {
     code: string;
 }
 
+interface Submission {
+    problem_title: string;
+    problem_slug: string;
+}
+
 interface UserHistory {
     id: string;
     display_name: string;
-    days: { date: string; solved: boolean }[];
+    days: {
+        date: string;
+        solved: boolean;
+        submissions: Submission[];
+    }[];
     solvedCount: number;
 }
 
@@ -59,21 +68,42 @@ export default function RoomHistory() {
             dates.push(today.minus({ days: i }).toISODate()!);
         }
 
-        const { data: results, error: resultsError } = await supabase
+        // Fetch daily_results for did_solve status
+        const { data: results } = await supabase
             .from('daily_results')
             .select('*')
             .in('user_id', usersData.map(u => u.id))
             .gte('date', dates[0])
             .lte('date', dates[dates.length - 1]);
 
-        if (resultsError) return;
+        // Fetch all submissions for detailed problem info
+        const { data: submissions } = await supabase
+            .from('submissions')
+            .select('*')
+            .in('user_id', usersData.map(u => u.id))
+            .gte('date', dates[0])
+            .lte('date', dates[dates.length - 1]);
 
         const history: UserHistory[] = usersData.map((user) => {
             const userResults = results?.filter((r) => r.user_id === user.id) || [];
+            const userSubmissions = submissions?.filter((s) => s.user_id === user.id) || [];
+
             const days = dates.map((date) => {
                 const result = userResults.find((r) => r.date === date);
-                return { date, solved: result?.did_solve || false };
+                const daySubmissions = userSubmissions
+                    .filter((s) => s.date === date)
+                    .map((s) => ({
+                        problem_title: s.problem_title,
+                        problem_slug: s.problem_slug,
+                    }));
+
+                return {
+                    date,
+                    solved: result?.did_solve || false,
+                    submissions: daySubmissions,
+                };
             });
+
             const solvedCount = days.filter((d) => d.solved).length;
             return { id: user.id, display_name: user.display_name, days, solvedCount };
         });
@@ -146,6 +176,7 @@ export default function RoomHistory() {
                                     const dayKey = `${user.id}-${day.date}`;
                                     const isHovered = hoveredDay === dayKey;
                                     const isToday = day.date === todayDate;
+                                    const hasMultiple = day.submissions.length > 1;
 
                                     return (
                                         <div
@@ -169,6 +200,25 @@ export default function RoomHistory() {
                                             onMouseEnter={() => setHoveredDay(dayKey)}
                                             onMouseLeave={() => setHoveredDay(null)}
                                         >
+                                            {hasMultiple && (
+                                                <span style={{
+                                                    position: 'absolute',
+                                                    top: '-4px',
+                                                    right: '-4px',
+                                                    background: '#facc15',
+                                                    color: '#18181b',
+                                                    fontSize: '0.6rem',
+                                                    fontWeight: 700,
+                                                    width: '14px',
+                                                    height: '14px',
+                                                    borderRadius: '50%',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                }}>
+                                                    {day.submissions.length}
+                                                </span>
+                                            )}
                                             {isHovered && (
                                                 <div style={{
                                                     position: 'absolute',
@@ -177,15 +227,41 @@ export default function RoomHistory() {
                                                     transform: 'translateX(-50%)',
                                                     background: '#fafafa',
                                                     color: '#18181b',
-                                                    padding: '6px 10px',
+                                                    padding: '8px 12px',
                                                     borderRadius: '6px',
                                                     fontSize: '0.75rem',
                                                     fontWeight: 500,
                                                     whiteSpace: 'nowrap',
                                                     boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
                                                     zIndex: 100,
+                                                    maxWidth: '220px',
+                                                    textAlign: 'left',
                                                 }}>
-                                                    {formatDate(day.date)}: {day.solved ? '✓ Solved' : '✗ Missed'}
+                                                    <div style={{ fontWeight: 600, marginBottom: day.submissions.length > 0 ? '4px' : 0 }}>
+                                                        {formatDate(day.date)}: {day.solved ? '✓ Solved' : '✗ Missed'}
+                                                    </div>
+                                                    {day.submissions.length > 0 && (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                            {day.submissions.map((sub, i) => (
+                                                                <a
+                                                                    key={i}
+                                                                    href={`https://leetcode.com/problems/${sub.problem_slug}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    style={{
+                                                                        color: '#2563eb',
+                                                                        textDecoration: 'none',
+                                                                        fontSize: '0.7rem',
+                                                                        overflow: 'hidden',
+                                                                        textOverflow: 'ellipsis',
+                                                                    }}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    • {sub.problem_title}
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                     <div style={{
                                                         position: 'absolute',
                                                         top: '100%',

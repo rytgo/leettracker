@@ -220,3 +220,47 @@ export async function getTodayResult(userId: string): Promise<DailyResult | null
 
     return data;
 }
+
+/**
+ * Save all submissions for a user on a given day
+ * Uses upsert to avoid duplicates (based on user_id, date, problem_slug)
+ * 
+ * @param userId - User UUID
+ * @param submissions - Array of submissions to save
+ */
+export async function saveSubmissions(
+    userId: string,
+    submissions: {
+        title: string;
+        titleSlug: string;
+        timestamp: number;
+        id: string;
+    }[]
+): Promise<void> {
+    if (submissions.length === 0) return;
+
+    const today = getPacificDate();
+
+    // Transform to database format
+    const rows = submissions.map((sub) => ({
+        user_id: userId,
+        date: today,
+        problem_title: sub.title,
+        problem_slug: sub.titleSlug,
+        solved_at: new Date(sub.timestamp * 1000).toISOString(),
+        submission_id: sub.id,
+    }));
+
+    // Upsert each submission (unique constraint handles duplicates)
+    const { error } = await supabase
+        .from('submissions')
+        .upsert(rows, {
+            onConflict: 'user_id,date,problem_slug',
+        });
+
+    if (error) {
+        console.error('Error saving submissions:', error);
+        // Don't throw - this is a non-critical operation
+    }
+}
+

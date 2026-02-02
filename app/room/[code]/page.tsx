@@ -251,7 +251,20 @@ export default function RoomDashboard() {
                             {todayStatus.isDone && (
                                 <div className="user-details">
                                     Solved at {solveTimeDisplay}
-                                    {todayStatus.problemTitle && ` · ${todayStatus.problemTitle}`}
+                                    {todayStatus.problemTitle && todayStatus.problemSlug && (
+                                        <>
+                                            {' · '}
+                                            <a
+                                                href={`https://leetcode.com/problems/${todayStatus.problemSlug}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="problem-link"
+                                            >
+                                                {todayStatus.problemTitle}
+                                            </a>
+                                        </>
+                                    )}
+                                    {todayStatus.problemTitle && !todayStatus.problemSlug && ` · ${todayStatus.problemTitle}`}
                                 </div>
                             )}
 

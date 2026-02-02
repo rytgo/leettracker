@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { checkTodayStatus } from '@/lib/leetcode';
-import { upsertTodayResult } from '@/lib/streaks';
+import { checkTodayStatus, getAllTodaySubmissions } from '@/lib/leetcode';
+import { upsertTodayResult, saveSubmissions } from '@/lib/streaks';
 import { User } from '@/lib/types';
 
 /**
@@ -43,10 +43,10 @@ export async function GET(request: NextRequest) {
         const results = await Promise.all(
             users.map(async (user: User) => {
                 try {
-                    // Check today's LeetCode status
+                    // Check today's LeetCode status (for daily_results)
                     const status = await checkTodayStatus(user.leetcode_username);
 
-                    // Update database
+                    // Update daily_results table (keeps the first/most-recent solve)
                     await upsertTodayResult(
                         user.id,
                         status.isDone,
@@ -56,11 +56,18 @@ export async function GET(request: NextRequest) {
                         status.submissionId
                     );
 
+                    // Get ALL submissions for today and save to submissions table
+                    const allSubmissions = await getAllTodaySubmissions(user.leetcode_username);
+                    if (allSubmissions.length > 0) {
+                        await saveSubmissions(user.id, allSubmissions);
+                    }
+
                     return {
                         username: user.leetcode_username,
                         success: true,
                         isDone: status.isDone,
                         problemTitle: status.problemTitle,
+                        totalSubmissions: allSubmissions.length,
                     };
                 } catch (error) {
                     console.error(`Error processing user ${user.leetcode_username}:`, error);
@@ -90,3 +97,4 @@ export async function GET(request: NextRequest) {
         );
     }
 }
+
