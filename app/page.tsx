@@ -44,6 +44,7 @@ export default function LandingPage() {
   const [showPinInput, setShowPinInput] = useState(false);
   const [pin, setPin] = useState('');
   const [recentRooms, setRecentRooms] = useState<RecentRoom[]>([]);
+  const [showInfo, setShowInfo] = useState(false);
 
   useEffect(() => {
     setRecentRooms(getRecentRooms());
@@ -106,8 +107,11 @@ export default function LandingPage() {
   return (
     <div className="container">
       <div className="header">
-        <h1 className="title">LEETTRACKER</h1>
-        <p className="subtitle">daily accountability for groups</p>
+        <div className="title-row">
+          <h1 className="title">LEETTRACKER</h1>
+          <button className="about-link" onClick={() => setShowInfo(true)}>about</button>
+        </div>
+        <p className="subtitle">track daily leetcode with friends</p>
       </div>
 
       <div className="landing-content">
@@ -198,6 +202,22 @@ export default function LandingPage() {
 
         {error && <div className="error-message">{error}</div>}
       </div>
+
+      {showInfo && (
+        <div className="info-overlay" onClick={() => setShowInfo(false)}>
+          <div className="info-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="info-close" onClick={() => setShowInfo(false)}>×</button>
+            <h3>What is this?</h3>
+            <p>A simple tracker for daily LeetCode accountability.</p>
+            <ul>
+              <li>Create a room, share the code with friends</li>
+              <li>Add everyone's LeetCode username</li>
+              <li>See who's solved today at a glance</li>
+            </ul>
+            <p className="info-note">Auto-syncs every 15 min. No login required. Resets at midnight PT.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
