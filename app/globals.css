@@ -219,6 +219,12 @@ body {
   font-weight: 600;
 }
 
+.streak-label {
+  color: var(--fg-muted);
+  font-size: 0.75rem;
+  text-transform: lowercase;
+}
+
 /* ========== NAV LINKS ========== */
 .nav-links {
   display: flex;

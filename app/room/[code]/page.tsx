@@ -270,13 +270,11 @@ export default function RoomDashboard() {
 
                             <div className="streaks">
                                 <div className="streak-item">
-                                    <span>🔥</span>
-                                    <span>Current:</span>
+                                    <span className="streak-label">streak</span>
                                     <span className="streak-value">{user.currentStreak}</span>
                                 </div>
                                 <div className="streak-item">
-                                    <span>⭐</span>
-                                    <span>Best:</span>
+                                    <span className="streak-label">best</span>
                                     <span className="streak-value">{user.longestStreak}</span>
                                 </div>
                             </div>
