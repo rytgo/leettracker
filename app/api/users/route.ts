@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import { fetchLeetCodeSubmissions } from '@/lib/leetcode';
 import { DateTime } from 'luxon';
 import { PACIFIC_TZ } from '@/lib/timezone';
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
 
         // 2. Insert user into Supabase
-        const { data: newUser, error: insertError } = await supabase
+        const { data: newUser, error: insertError } = await supabaseAdmin
             .from('users')
             .insert([{
                 leetcode_username: username,
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
                         const solveTime = DateTime.fromSeconds(timestamp, { zone: PACIFIC_TZ });
 
                         // Manually insert/update the daily_result
-                        await supabase
+                        await supabaseAdmin
                             .from('daily_results')
                             .upsert(
                                 {
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
                             );
                     } else {
                         // Not solved
-                        await supabase
+                        await supabaseAdmin
                             .from('daily_results')
                             .upsert(
                                 {
@@ -148,7 +148,7 @@ export async function DELETE(request: NextRequest) {
         }
 
         // Delete user (cascade will handle daily_results)
-        const { error } = await supabase
+        const { error } = await supabaseAdmin
             .from('users')
             .delete()
             .eq('leetcode_username', username);
@@ -179,7 +179,7 @@ export async function PATCH(request: NextRequest) {
             );
         }
 
-        const { error } = await supabase
+        const { error } = await supabaseAdmin
             .from('users')
             .update({ display_name: displayName })
             .eq('leetcode_username', username);

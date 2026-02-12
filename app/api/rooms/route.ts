@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 
 // Generate a random 6-character alphanumeric code
 function generateRoomCode(): string {
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
         let attempts = 0;
 
         while (attempts < 10) {
-            const { data: existing } = await supabase
+            const { data: existing } = await supabaseAdmin
                 .from('rooms')
                 .select('code')
                 .eq('code', code)
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Create room
-        const { data: room, error } = await supabase
+        const { data: room, error } = await supabaseAdmin
             .from('rooms')
             .insert([{
                 code,
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        const { data: room, error } = await supabase
+        const { data: room, error } = await supabaseAdmin
             .from('rooms')
             .select('id, code, created_at, pin, timezone')
             .eq('code', code)
@@ -119,7 +119,7 @@ export async function PATCH(request: NextRequest) {
             );
         }
 
-        const { data: room, error } = await supabase
+        const { data: room, error } = await supabaseAdmin
             .from('rooms')
             .select('id, pin')
             .eq('code', code)

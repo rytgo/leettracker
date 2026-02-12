@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 
 /**
  * Debug endpoint to check database contents
  */
 export async function GET() {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
         .from('daily_results')
         .select('*, users(display_name, leetcode_username)')
         .order('date', { ascending: false })

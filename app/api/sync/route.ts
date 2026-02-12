@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import { checkTodayStatus, getAllTodaySubmissions } from '@/lib/leetcode';
 import { upsertTodayResult, saveSubmissions } from '@/lib/streaks';
 import { User } from '@/lib/types';
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         const roomId = searchParams.get('roomId');
 
         // Build query - optionally filter by room
-        let query = supabase.from('users').select('*');
+        let query = supabaseAdmin.from('users').select('*');
         if (roomId) {
             query = query.eq('room_id', roomId);
         }
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
 
         // Get unique room IDs and fetch their timezones
         const roomIds = [...new Set(users.map((u: UserWithRoom) => u.room_id).filter(Boolean))];
-        const { data: rooms } = await supabase
+        const { data: rooms } = await supabaseAdmin
             .from('rooms')
             .select('id, timezone')
             .in('id', roomIds);

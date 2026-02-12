@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import { fetchLeetCodeSubmissions } from '@/lib/leetcode';
 import { upsertTodayResult } from '@/lib/streaks';
 import { User } from '@/lib/types';
@@ -15,7 +15,7 @@ import { PACIFIC_TZ } from '@/lib/timezone';
 export async function GET() {
     try {
         // Fetch all users
-        const { data: users, error: usersError } = await supabase
+        const { data: users, error: usersError } = await supabaseAdmin
             .from('users')
             .select('*');
 
@@ -93,7 +93,7 @@ export async function GET() {
                         const solveTime = DateTime.fromSeconds(timestamp, { zone: PACIFIC_TZ });
 
                         // Manually insert/update the daily_result
-                        const { error } = await supabase
+                        const { error } = await supabaseAdmin
                             .from('daily_results')
                             .upsert(
                                 {
@@ -118,7 +118,7 @@ export async function GET() {
                         }
                     } else {
                         // They didn't solve on this date - record it as false
-                        const { error } = await supabase
+                        const { error } = await supabaseAdmin
                             .from('daily_results')
                             .upsert(
                                 {

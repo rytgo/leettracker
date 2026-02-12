@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
 import { DailyResult } from './types';
 import { getDateForTimezone, DEFAULT_TIMEZONE } from './timezone';
 
@@ -180,7 +180,7 @@ export async function upsertTodayResult(
 ): Promise<void> {
     const today = getDateForTimezone(timezone);
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
         .from('daily_results')
         .upsert(
             {
@@ -261,7 +261,7 @@ export async function saveSubmissions(
     }));
 
     // Upsert each submission (unique constraint handles duplicates)
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
         .from('submissions')
         .upsert(rows, {
             onConflict: 'user_id,date,problem_slug',
