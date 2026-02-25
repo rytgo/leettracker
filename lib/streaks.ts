@@ -180,6 +180,22 @@ export async function upsertTodayResult(
 ): Promise<void> {
     const today = getDateForTimezone(timezone);
 
+    // GUARD: Never overwrite a confirmed solve with "not solved"
+    // This prevents transient LeetCode API failures from corrupting data
+    if (!didSolve) {
+        const { data: existing } = await supabaseAdmin
+            .from('daily_results')
+            .select('did_solve')
+            .eq('user_id', userId)
+            .eq('date', today)
+            .maybeSingle();
+
+        if (existing?.did_solve === true) {
+            // Already confirmed solved — do not overwrite
+            return;
+        }
+    }
+
     const { error } = await supabaseAdmin
         .from('daily_results')
         .upsert(

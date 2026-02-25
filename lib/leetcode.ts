@@ -120,14 +120,9 @@ export async function checkTodayStatus(username: string, timezone: string = DEFA
         };
     } catch (error) {
         console.error(`Error checking today's status for ${username}:`, error);
-        // Return "not done" on error to avoid false positives
-        return {
-            isDone: false,
-            solveTime: null,
-            problemTitle: null,
-            problemSlug: null,
-            submissionId: null,
-        };
+        // Re-throw so the caller can skip this user entirely
+        // rather than marking them as "not solved" (false negative)
+        throw error;
     }
 }
 

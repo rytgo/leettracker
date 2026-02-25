@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { fetchLeetCodeSubmissions } from '@/lib/leetcode';
 import { upsertTodayResult } from '@/lib/streaks';
@@ -12,7 +12,19 @@ import { PACIFIC_TZ } from '@/lib/timezone';
  * 
  * This should be run once after initial setup to populate historical data
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+    // Protect endpoint with secret token
+    const { searchParams } = new URL(request.url);
+    const token = searchParams.get('token');
+    const secret = process.env.BACKFILL_SECRET;
+
+    if (!secret || token !== secret) {
+        return NextResponse.json(
+            { error: 'Unauthorized. Provide ?token=YOUR_BACKFILL_SECRET' },
+            { status: 401 }
+        );
+    }
+
     try {
         // Fetch all users
         const { data: users, error: usersError } = await supabaseAdmin
@@ -117,27 +129,36 @@ export async function GET() {
                             daysProcessed++;
                         }
                     } else {
-                        // They didn't solve on this date - record it as false
-                        const { error } = await supabaseAdmin
+                        // Only write did_solve=false if no existing confirmed solve
+                        const { data: existing } = await supabaseAdmin
                             .from('daily_results')
-                            .upsert(
-                                {
-                                    user_id: user.id,
-                                    date: dateStr,
-                                    did_solve: false,
-                                    solved_at: null,
-                                    problem_title: null,
-                                    problem_slug: null,
-                                    submission_id: null,
-                                    updated_at: new Date().toISOString(),
-                                },
-                                {
-                                    onConflict: 'user_id,date',
-                                }
-                            );
+                            .select('did_solve')
+                            .eq('user_id', user.id)
+                            .eq('date', dateStr)
+                            .maybeSingle();
 
-                        if (error) {
-                            console.error(`Error upserting ${dateStr} for ${user.leetcode_username}:`, error);
+                        if (!existing || existing.did_solve !== true) {
+                            const { error } = await supabaseAdmin
+                                .from('daily_results')
+                                .upsert(
+                                    {
+                                        user_id: user.id,
+                                        date: dateStr,
+                                        did_solve: false,
+                                        solved_at: null,
+                                        problem_title: null,
+                                        problem_slug: null,
+                                        submission_id: null,
+                                        updated_at: new Date().toISOString(),
+                                    },
+                                    {
+                                        onConflict: 'user_id,date',
+                                    }
+                                );
+
+                            if (error) {
+                                console.error(`Error upserting ${dateStr} for ${user.leetcode_username}:`, error);
+                            }
                         }
                     }
                 }
