@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { fetchLeetCodeSubmissions } from '@/lib/leetcode';
-import { upsertTodayResult } from '@/lib/streaks';
 import { User } from '@/lib/types';
 import { DateTime } from 'luxon';
 import { PACIFIC_TZ } from '@/lib/timezone';

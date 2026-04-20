@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { checkTodayStatus, getAllTodaySubmissions } from '@/lib/leetcode';
-import { upsertTodayResult, saveSubmissions } from '@/lib/streaks';
+import { upsertTodayResult, saveSubmissions } from '@/lib/streaks-admin';
 import { User } from '@/lib/types';
 import { DEFAULT_TIMEZONE } from '@/lib/timezone';
 
