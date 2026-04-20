@@ -19,11 +19,13 @@ A simple daily LeetCode accountability tracker for groups. Made this because my 
 
 1. Clone the repo
 2. `npm install`
-3. Create a Supabase project and grab your URL + anon key
+3. Create a Supabase project and grab your URL + publishable/secret keys
 4. Create `.env.local`:
    ```
    NEXT_PUBLIC_SUPABASE_URL=your-url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-key
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+   SUPABASE_SECRET_KEY=sb_secret_xxx
+   BACKFILL_SECRET=your-long-random-secret
    ```
 5. Run the SQL migrations in `supabase/migrations/` via Supabase SQL Editor
 6. `npm run dev`

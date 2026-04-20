@@ -1,4 +1,5 @@
-import { supabase, supabaseAdmin } from './supabase';
+import { supabase } from './supabase';
+import { supabaseAdmin } from './supabase-admin';
 import { DailyResult } from './types';
 import { getDateForTimezone, DEFAULT_TIMEZONE } from './timezone';
 

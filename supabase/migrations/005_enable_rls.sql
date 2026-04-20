@@ -1,6 +1,6 @@
 -- RLS Security Migration
 -- Enables Row-Level Security on users and daily_results tables
--- Public (anon key) can only READ, server-side (service role key) can do everything
+-- Public (publishable key) can only READ, server-side (secret key) can do everything
 --
 -- Run this in Supabase SQL Editor (https://supabase.com/dashboard → SQL Editor)
 

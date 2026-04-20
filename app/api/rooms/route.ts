@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 // Generate a random 6-character alphanumeric code
 function generateRoomCode(): string {
@@ -149,3 +149,4 @@ export async function PATCH(request: NextRequest) {
         );
     }
 }
+

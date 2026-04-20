@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { fetchLeetCodeSubmissions } from '@/lib/leetcode';
 import { upsertTodayResult } from '@/lib/streaks';
 import { User } from '@/lib/types';
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
                     const submission = submissionsByDate.get(dateStr);
 
                     if (submission) {
-                        processedDates.push(`✅ ${dateStr}: ${submission.title}`);
+                        processedDates.push(`[OK] ${dateStr}: ${submission.title}`);
                         // They solved on this date
                         const timestamp = parseInt(submission.timestamp, 10);
                         const solveTime = DateTime.fromSeconds(timestamp, { zone: PACIFIC_TZ });
@@ -197,3 +197,4 @@ export async function GET(request: NextRequest) {
         );
     }
 }
+

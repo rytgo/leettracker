@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { fetchLeetCodeSubmissions } from '@/lib/leetcode';
 import { DateTime } from 'luxon';
 import { DEFAULT_TIMEZONE } from '@/lib/timezone';
@@ -243,3 +243,4 @@ export async function PATCH(request: NextRequest) {
         );
     }
 }
+

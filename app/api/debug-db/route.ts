@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 /**
  * Debug endpoint to check database contents
@@ -17,3 +17,4 @@ export async function GET() {
 
     return NextResponse.json({ results: data }, { status: 200 });
 }
+
